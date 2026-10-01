@@ -1,0 +1,62 @@
+name: msgwatch
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"   # GitHub 实际执行可能延迟 15~30 分钟
+  workflow_dispatch: {}       # 允许手动触发测试
+
+permissions:
+  contents: read
+
+concurrency:
+  group: msgwatch
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 缓存依赖与浏览器
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.cache/ms-playwright
+          key: msgwatch-deps-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: msgwatch-deps-${{ runner.os }}-
+
+      - name: 安装依赖
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: 恢复去重状态
+        uses: actions/cache@v4
+        with:
+          path: /tmp/msgwatch/data/state.db
+          key: msgwatch-state-${{ github.run_id }}
+          restore-keys: |
+            msgwatch-state-
+
+      - name: 写入 Cookie（来自 Secrets）
+        run: |
+          mkdir -p /tmp/cookies
+          printf '%s' "$BILI" > /tmp/cookies/bili.json
+          printf '%s' "$XHS"  > /tmp/cookies/xhs.json
+          printf '%s' "$DY"   > /tmp/cookies/dy.json
+        env:
+          BILI: ${{ secrets.MSGWATCH_BILI_COOKIES }}
+          XHS: ${{ secrets.MSGWATCH_XHS_COOKIES }}
+          DY: ${{ secrets.MSGWATCH_DY_COOKIES }}
+
+      - name: 检测一轮并推送
+        run: python -m msgwatch once --config deploy/github/config.ci.yaml
+        env:
+          MSGWATCH_WECOM_KEY: ${{ secrets.MSGWATCH_WECOM_KEY }}

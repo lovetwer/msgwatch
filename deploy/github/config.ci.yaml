@@ -1,0 +1,54 @@
+# CI 专用配置：凭据全部来自 GitHub Secrets（${VAR} 会在运行时替换），本文件可安全提交。
+general:
+  data_dir: /tmp/msgwatch/data
+  log_file: /tmp/msgwatch/logs/run.log
+  log_level: INFO
+  seed_on_first_run: true
+  max_age_hours: 72          # CI 定时可能漂移，放宽到 72 小时
+  alert_fail_threshold: 3
+  alert_cooldown_minutes: 720
+  max_items_per_notify: 8
+
+notify:
+  channels:
+    - type: wecom_webhook
+      enabled: true
+      key: "${MSGWATCH_WECOM_KEY}"
+
+platforms:
+  bilibili:
+    enabled: true
+    interval_seconds: 1200
+    monitors:
+      comments: true
+      dms: true
+    cookie: ""
+    cookies_file: /tmp/cookies/bili.json
+
+  xiaohongshu:
+    enabled: true
+    interval_seconds: 1200
+    monitors:
+      comments: true
+      dms: true
+    browser_profile: /tmp/profile/xhs
+    headless: true
+    page_wait_seconds: 8
+    cookies_file: /tmp/cookies/xhs.json
+    pages:
+      comments: "https://www.xiaohongshu.com/notification"
+      dms: "https://www.xiaohongshu.com/chat"
+
+  douyin:
+    enabled: true
+    interval_seconds: 1200
+    monitors:
+      comments: true
+      dms: true
+    browser_profile: /tmp/profile/douyin
+    headless: true
+    page_wait_seconds: 8
+    cookies_file: /tmp/cookies/dy.json
+    pages:
+      comments: "https://www.douyin.com/"
+      dms: "https://www.douyin.com/"

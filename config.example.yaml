@@ -1,0 +1,152 @@
+# =====================================================================
+# msgwatch 配置文件
+# 复制为 config.yaml 后填写。带 * 的字段需要你自己填。
+# 相对路径均相对本文件所在目录。
+# =====================================================================
+
+general:
+  # 数据目录（去重库 state.db、心跳 heartbeat.json、debug 抓包都放这里）
+  data_dir: ./data
+  # 日志
+  log_level: INFO
+  log_file: ./logs/msgwatch.log
+  log_max_mb: 5
+  log_backup_count: 3
+  # 首次运行把已存在的历史消息记为“已见”，避免一次推送几百条旧消息
+  seed_on_first_run: true
+  # 超过该小时数的旧消息不再推送
+  max_age_hours: 48
+  # 连续失败多少次后发送告警
+  alert_fail_threshold: 3
+  # 同一平台告警冷却时间（分钟），避免告警轰炸
+  alert_cooldown_minutes: 360
+  # 一次检测新消息超过该数量时，合并为一条汇总通知
+  max_items_per_notify: 8
+  # 失败退避最大倍数（下一次检测间隔 = 平台间隔 x 2^(失败次数-1)，封顶该倍数）
+  max_backoff_multiplier: 6
+  # 去重记录保留天数
+  dedup_window_days: 30
+
+# =====================================================================
+# 通知渠道（可同时启用多个；enabled: true 且填好必填项即生效）
+# 微信推送建议优先用 serverchan / wxpusher / pushplus（零门槛，消息直达微信）。
+# =====================================================================
+notify:
+  channels:
+    # ---------- 方案A：Server酱（最简单，微信内接收） ----------
+    # 1. 访问 https://sct.ftqq.com/ 微信扫码登录
+    # 2. 复制 SendKey 填到下面 sendkey
+    - type: serverchan
+      enabled: false
+      sendkey: "SCTxxxxxxxxxxxxxxxxxxxx"   # *
+
+    # ---------- 方案B：WxPusher（免费，微信内接收） ----------
+    # 1. 访问 https://wxpusher.zjiecode.com/ 创建应用得到 appToken
+    # 2. 微信关注「WxPusher」服务号，扫码关注你的应用得到 UID
+    - type: wxpusher
+      enabled: false
+      app_token: "AT_xxxxxxxxxxxxxxxxxxxx"   # *
+      uids: ["UID_xxxxxxxxxxxxxxxx"]         # * 与 topic_ids 二选一
+      topic_ids: []
+
+    # ---------- 方案C：PushPlus（微信内接收） ----------
+    # 访问 https://www.pushplus.plus/ 微信扫码登录，复制 token
+    - type: pushplus
+      enabled: false
+      token: "xxxxxxxxxxxxxxxxxxxxxxxx"      # *
+
+    # ---------- 方案D：企业微信自建应用（消息进企业微信App） ----------
+    # 1. https://work.weixin.qq.com/ 注册企业（个人可注册，免费）
+    # 2. 管理后台 → 应用管理 → 自建 → 创建应用，记下 AgentId 和 Secret
+    # 3. 我的企业 → 企业信息 → 企业ID（corpid）
+    # 4. 应用详情 → 开发者接口 → 配置「企业可信IP」为运行本工具的出口IP
+    # 5. 手机安装企业微信App登录同一账号即可收到消息；
+    #    老企业还可尝试 我的企业→微信插件 关注后在微信内接收（新注册企业已不支持）
+    - type: wecom_app
+      enabled: false
+      corpid: "wwxxxxxxxxxxxxxxxx"     # *
+      corpsecret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # *
+      agentid: 1000002                 # *
+      touser: "@all"
+
+    # ---------- 方案D2：企业微信群机器人 Webhook（最省事的企微方案） ----------
+    # 企业微信群聊 → 右键 → 添加群机器人 → 创建后复制 Webhook 地址里的 key
+    # 消息发送到该企业微信群；限频约 20 条/分钟
+    - type: wecom_webhook
+      enabled: false
+      key: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"   # * Webhook 地址 ?key= 后面那串
+      # 也可以直接填完整地址（与 key 二选一）：
+      # url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+
+    # ---------- 方案E：邮件兜底 ----------
+    # QQ邮箱：smtp.qq.com / 465 / SSL，密码填「授权码」（设置→账户→开启SMTP获得）
+    # 163邮箱：smtp.163.com / 465 / SSL，同样用授权码
+    - type: email
+      enabled: false
+      smtp_host: "smtp.qq.com"
+      smtp_port: 465
+      use_ssl: true
+      use_starttls: false
+      username: "you@qq.com"           # *
+      password: "你的SMTP授权码"        # * （不是登录密码！）
+      to:
+        - "you@qq.com"                 # * 收件邮箱
+
+# =====================================================================
+# 平台监控（enabled: true 才会运行；interval_seconds 为检测间隔）
+# =====================================================================
+platforms:
+
+  # ---------------------------------------------------------------
+  # 哔哩哔哩：直连官方 Web API，只依赖 Cookie，稳定且轻量
+  # ---------------------------------------------------------------
+  bilibili:
+    enabled: true
+    interval_seconds: 180          # 检测间隔（秒），不建议低于 120
+    monitors:
+      comments: true               # 新评论 + 评论下的回复（回复我的 feed）
+      dms: true                    # 私信
+    # * 方式一：从浏览器复制完整 Cookie（F12 → Network → 任意请求 → Request Headers
+    #   → Cookie 整串粘贴，至少包含 SESSDATA=xxx; ）
+    cookie: ""
+    # 方式二（推荐）：运行 `python -m msgwatch login bilibili` 自动获取，
+    # 结果保存在下面路径，二者填一个即可（同时填时 cookie 优先级高）
+    cookies_file: ./userdata/bilibili/cookies.json
+
+  # ---------------------------------------------------------------
+  # 小红书：Web 接口带签名，无公开文档，采用浏览器方案
+  # （先 `python -m msgwatch login xiaohongshu` 登录一次）
+  # ---------------------------------------------------------------
+  xiaohongshu:
+    enabled: true
+    interval_seconds: 600          # 浏览器方案建议 >= 600
+    monitors:
+      comments: true
+      dms: true
+    browser_profile: ./userdata/xiaohongshu   # 登录态保存目录，勿删
+    headless: true                 # 若收不到数据可改 false 观察
+    page_wait_seconds: 6           # 页面停留秒数（等接口返回）
+    # 消息中心页面地址（经实测：评论和@在 /notification，私信在 /chat）。
+    # 若平台调整路由：登录后打开网页版消息中心，复制地址栏 URL 替换下面的值；
+    # 用 `python -m msgwatch probe xiaohongshu` 验证
+    pages:
+      comments: "https://www.xiaohongshu.com/notification"
+      dms: "https://www.xiaohongshu.com/chat"
+
+  # ---------------------------------------------------------------
+  # 抖音：同小红书采用浏览器方案
+  # （先 `python -m msgwatch login douyin` 扫码登录一次）
+  # ---------------------------------------------------------------
+  douyin:
+    enabled: true
+    interval_seconds: 600
+    monitors:
+      comments: true
+      dms: true
+    browser_profile: ./userdata/douyin
+    headless: true
+    page_wait_seconds: 6
+    # 入口为首页：适配器会点击右上角「通知」抓评论/回复、点击「消息」抓私信
+    pages:
+      comments: "https://www.douyin.com/"
+      dms: "https://www.douyin.com/"

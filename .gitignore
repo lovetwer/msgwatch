@@ -1,0 +1,9 @@
+# 凭据与数据，不要提交
+config.yaml
+userdata/
+data/
+logs/
+debug/
+.venv/
+__pycache__/
+*.pyc
