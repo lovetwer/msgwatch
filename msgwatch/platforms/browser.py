@@ -168,12 +168,17 @@ async def capture_pages(
             for spec in specs:
                 start = len(all_responses)
                 final_url = ""
-                try:
-                    await page.goto(spec.url, wait_until="domcontentloaded", timeout=45_000)
-                    final_url = page.url
-                except Exception as e:
-                    log.warning("%s 打开页面失败(%s)：%s", platform, spec.url, e)
-                    continue
+                for attempt in (1, 2):
+                    try:
+                        await page.goto(spec.url, wait_until="domcontentloaded", timeout=45_000)
+                        final_url = page.url
+                        break
+                    except Exception as e:
+                        if attempt == 2:
+                            log.warning("%s 打开页面失败(%s)：%s", platform, spec.url, e)
+                        else:
+                            # 国际网络偶发超时，重试一次
+                            await asyncio.sleep(5)
                 try:
                     await page.wait_for_load_state("networkidle", timeout=15_000)
                 except Exception:
