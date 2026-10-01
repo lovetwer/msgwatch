@@ -3,7 +3,18 @@ name: msgwatch
 on:
   schedule:
     - cron: "*/20 * * * *"   # GitHub 实际执行可能延迟 15~30 分钟
-  workflow_dispatch: {}       # 允许手动触发测试
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "poll=正常检测, probe=抓包诊断"
+        default: poll
+        type: choice
+        options: [poll, probe]
+      platform:
+        description: "probe 模式下的平台"
+        default: xiaohongshu
+        type: choice
+        options: [bilibili, xiaohongshu, douyin]
 
 permissions:
   contents: read
@@ -57,6 +68,19 @@ jobs:
           DY: ${{ secrets.MSGWATCH_DY_COOKIES }}
 
       - name: 检测一轮并推送
+        if: inputs.mode != 'probe'
         run: python -m msgwatch once --config deploy/github/config.ci.yaml
         env:
           MSGWATCH_WECOM_KEY: ${{ secrets.MSGWATCH_WECOM_KEY }}
+
+      - name: 抓包诊断
+        if: inputs.mode == 'probe'
+        run: python -m msgwatch probe "${{ inputs.platform }}" --config deploy/github/config.ci.yaml
+
+      - name: 上传诊断文件
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-capture
+          path: data/debug
+          if-no-files-found: ignore
