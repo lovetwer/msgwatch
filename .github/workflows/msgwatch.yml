@@ -27,6 +27,8 @@ jobs:
   poll:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      MSGWATCH_WECOM_KEY: ${{ secrets.MSGWATCH_WECOM_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,8 +72,6 @@ jobs:
       - name: 检测一轮并推送
         if: inputs.mode != 'probe'
         run: python -m msgwatch once --config deploy/github/config.ci.yaml
-        env:
-          MSGWATCH_WECOM_KEY: ${{ secrets.MSGWATCH_WECOM_KEY }}
 
       - name: 抓包诊断
         if: inputs.mode == 'probe'
