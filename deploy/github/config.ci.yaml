@@ -26,7 +26,7 @@ platforms:
     cookies_file: /tmp/cookies/bili.json
 
   xiaohongshu:
-    enabled: true
+    enabled: false
     interval_seconds: 1200
     monitors:
       comments: true
